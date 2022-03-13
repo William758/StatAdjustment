@@ -21,28 +21,28 @@ namespace TPDespair.StatAdjustment
 
 	public class StatAdjustmentPlugin : BaseUnityPlugin
 	{
-		public const string ModVer = "1.0.0";
+		public const string ModVer = "1.1.0";
 		public const string ModName = "StatAdjustment";
 		public const string ModGuid = "com.TPDespair.StatAdjustment";
 
 
-		internal static BuffIndex AffixArmored = BuffIndex.None;
+		//internal static BuffIndex AffixArmored = BuffIndex.None;
 
 		public static bool DisableBarrierChanges = false;
 		public static bool DisableDynamicBarrier = false;
 
 		private static bool BarrierDecayMultEnabled = false;
 
-		public static event Action onLateSetupComplete;
-
 
 
 		public static ConfigEntry<bool> AutoCompatCfg { get; set; }
-		public static ConfigEntry<bool> EnableModuleCfg { get; set; }
-		public static ConfigEntry<bool> UtilityChangesCfg { get; set; }
+		public static ConfigEntry<bool> DamageChangesCfg { get; set; }
 		public static ConfigEntry<float> BaseMinCritCfg { get; set; }
+		public static ConfigEntry<float> MonsterDamageCfg { get; set; }
+		public static ConfigEntry<bool> MobilityChangesCfg { get; set; }
 		public static ConfigEntry<int> ExtraJumpCfg { get; set; }
-		public static ConfigEntry<float> ExtraMovespeedCfg { get; set; }
+		public static ConfigEntry<float> ExtraMovespeedPlayerCfg { get; set; }
+		public static ConfigEntry<float> ExtraMovespeedMonsterCfg { get; set; }
 		public static ConfigEntry<bool> HealthChangesCfg { get; set; }
 		public static ConfigEntry<bool> BaseHealthLimiterCfg { get; set; }
 		public static ConfigEntry<float> BaseHealthRatioCfg { get; set; }
@@ -59,8 +59,8 @@ namespace TPDespair.StatAdjustment
 		public static ConfigEntry<bool> BarrierSlowCfg { get; set; }
 		public static ConfigEntry<float> BarrierSlowStopCfg { get; set; }
 		public static ConfigEntry<float> AegisSlowMultCfg { get; set; }
-		public static ConfigEntry<float> IroncladSlowMultPlayerCfg { get; set; }
-		public static ConfigEntry<float> IroncladSlowMultMonsterCfg { get; set; }
+		//public static ConfigEntry<float> IroncladSlowMultPlayerCfg { get; set; }
+		//public static ConfigEntry<float> IroncladSlowMultMonsterCfg { get; set; }
 
 
 
@@ -71,7 +71,8 @@ namespace TPDespair.StatAdjustment
 
 			SetupConfig(Config);
 			SetupHooks();
-			OnLogBookControllerReady();
+
+			RoR2Application.onLoad += LateSetup;
 		}
 
 
@@ -83,26 +84,34 @@ namespace TPDespair.StatAdjustment
 				"Enable Automatic Compatibility. Changes settings based on other installed mods."
 			);
 
-			EnableModuleCfg = Config.Bind(
-				"1-Stat - Enable", "enableStatModule", true,
-				"Enable Stat Module."
-			);
-
-			UtilityChangesCfg = Config.Bind(
-				"2-Stat - Utility", "utilityChanges", true,
-				"Enable or disable utility changes."
+			DamageChangesCfg = Config.Bind(
+				"1-Stat - Damage", "damageChanges", true,
+				"Enable or disable damage changes."
 			);
 			BaseMinCritCfg = Config.Bind(
-				"2-Stat - Utility", "baseCritChance", 5f,
+				"1-Stat - Damage", "baseCritChance", 5f,
 				"Set minimum base critical strike chance for all entities. Vanilla is 1"
 			);
+			MonsterDamageCfg = Config.Bind(
+				"1-Stat - Damage", "monsterDamageMult", 1f,
+				"Multiply damage stat of non-players."
+			);
+
+			MobilityChangesCfg = Config.Bind(
+				"2-Stat - Mobility", "mobilityChanges", false,
+				"Enable or disable mobility changes."
+			);
 			ExtraJumpCfg = Config.Bind(
-				"2-Stat - Utility", "baseExtraJump", 1,
+				"2-Stat - Mobility", "baseExtraJump", 1,
 				"Extra jumps for players."
 			);
-			ExtraMovespeedCfg = Config.Bind(
-				"2-Stat - Utility", "baseExtraMovespeed", 0.2f,
-				"Increase movement speed for all entities. 0.2 = +20%."
+			ExtraMovespeedPlayerCfg = Config.Bind(
+				"2-Stat - Mobility", "baseExtraMovespeedPlayer", 0.1f,
+				"Increase movement speed for players. 0.1 = +10%."
+			);
+			ExtraMovespeedMonsterCfg = Config.Bind(
+				"2-Stat - Mobility", "baseExtraMovespeedMonster", 0.1f,
+				"Increase movement speed for non-players. 0.1 = +10%."
 			);
 
 			HealthChangesCfg = Config.Bind(
@@ -111,7 +120,7 @@ namespace TPDespair.StatAdjustment
 			);
 			BaseHealthLimiterCfg = Config.Bind(
 				"3-Stat - Health", "baseHealthLimiter", true,
-				"Prevent base health from being reduced."
+				"Prevent base health from being reduced by other settings."
 			);
 			BaseHealthRatioCfg = Config.Bind(
 				"3-Stat - Health", "baseHealthRatio", 0.35f,
@@ -144,7 +153,7 @@ namespace TPDespair.StatAdjustment
 			);
 			ScaleRegenMultCfg = Config.Bind(
 				"4-Stat - Regeneration", "scaleRegenFromLevel", 0.1f,
-				"Set player regen increase from levels. Vanilla is 0.2 = +100% every 5 levels."
+				"Set player regen increase from levels. 0.1 = +100% every 10 levels. Vanilla is 0.2 = +100% every 5 levels."
 			);
 			BurningRegenMultCfg = Config.Bind(
 				"4-Stat - Regeneration", "burningRegenMult", 0.5f,
@@ -171,6 +180,7 @@ namespace TPDespair.StatAdjustment
 				"5-Stat - Barrier", "aegisBarrierSlow", 0.3f,
 				"Slow barrier decay when entity has Aegis."
 			);
+			/*
 			IroncladSlowMultPlayerCfg = Config.Bind(
 				"5-Stat - Barrier", "ironcladBarrierSlowPlayer", 0.3f,
 				"Slow barrier decay when player has Ironclad Affix."
@@ -179,84 +189,69 @@ namespace TPDespair.StatAdjustment
 				"5-Stat - Barrier", "ironcladBarrierSlowMonster", 0.65f,
 				"Slow barrier decay when monster has Ironclad Affix."
 			);
+			*/
 		}
 
 
 
 		private static void SetupHooks()
 		{
-			if (EnableModuleCfg.Value)
+			if (DamageChangesCfg.Value)
 			{
-				if (UtilityChangesCfg.Value)
-				{
-					BaseCritHook();
-					ExtraJumpHook();
-					ExtraMovespeedHook();
-				}
+				CritHook();
+				DamageHook();
+			}
 
-				if (HealthChangesCfg.Value)
-				{
-					BaseHealthHook();
-				}
+			if (MobilityChangesCfg.Value)
+			{
+				JumpHook();
+				MovespeedHook();
+			}
 
-				if (RegenChangesCfg.Value)
-				{
-					BaseRegenHook();
-					RegenScalingHook();
-					BurningRegenHook();
-				}
+			if (HealthChangesCfg.Value)
+			{
+				HealthHook();
+			}
+
+			if (RegenChangesCfg.Value)
+			{
+				BaseRegenHook();
+				RegenScalingHook();
+				if (BurningRegenMultCfg.Value > 0f) BurningRegenHook();
 			}
 		}
 
-		private static void OnLogBookControllerReady()
-		{
-			On.RoR2.UI.LogBook.LogBookController.Init += (orig) =>
-			{
-				FindIndexes();
-				LateSetup();
-				OnAction();
-
-				orig();
-			};
-		}
-
+		/*
 		private static void FindIndexes()
 		{
 			BuffIndex buffIndex = BuffCatalog.FindBuffIndex("EliteVariety_AffixArmored");
 			if (buffIndex != BuffIndex.None) AffixArmored = buffIndex;
 		}
-
+		*/
 		private static void LateSetup()
 		{
+			//FindIndexes();
+
 			if (AutoCompatCfg.Value)
 			{
 				if (PluginLoaded("com.Borbo.BORBO")) DisableBarrierChanges = true;
 				if (PluginLoaded("com.zombieseatflesh7.dynamicbarrierdecay")) DisableDynamicBarrier = true;
 			}
 
-			if (EnableModuleCfg.Value)
+			if (BarrierChangesCfg.Value && !DisableBarrierChanges)
 			{
-				if (BarrierChangesCfg.Value && !DisableBarrierChanges)
+				if (DynamicBarrierCfg.Value && !DisableDynamicBarrier) DynamicBarrierDecayHook();
+				if (BarrierSlowCfg.Value)
 				{
-					if (DynamicBarrierCfg.Value && !DisableDynamicBarrier) DynamicBarrierDecayHook();
-					if (BarrierSlowCfg.Value)
-					{
-						SlowBarrierDecayHook();
-						BarrierDecayMultEnabled = true;
-					}
+					SlowBarrierDecayHook();
+					BarrierDecayMultEnabled = true;
 				}
 			}
 		}
 
-		private static void OnAction()
-		{
-			Action action = onLateSetupComplete;
-			if (action != null) action();
-		}
 
 
-
-		private static void BaseCritHook()
+		private static void CritHook()
 		{
 			On.RoR2.CharacterBody.RecalculateStats += (orig, self) =>
 			{
@@ -266,7 +261,50 @@ namespace TPDespair.StatAdjustment
 			};
 		}
 
-		private static void ExtraJumpHook()
+		private static void DamageHook()
+		{
+			IL.RoR2.CharacterBody.RecalculateStats += (il) =>
+			{
+				ILCursor c = new ILCursor(il);
+
+				const int baseValue = 79;
+				const int multValue = 80;
+
+				bool found = c.TryGotoNext(
+					x => x.MatchLdloc(baseValue),
+					x => x.MatchLdloc(multValue),
+					x => x.MatchMul(),
+					x => x.MatchStloc(baseValue)
+				);
+
+				if (found)
+				{
+					c.Index += 4;
+
+					// multiplier
+					c.Emit(OpCodes.Ldarg, 0);
+					c.Emit(OpCodes.Ldloc, baseValue);
+					c.EmitDelegate<Func<CharacterBody, float, float>>((self, value) =>
+					{
+						if (self.teamComponent.teamIndex != TeamIndex.Player)
+						{
+							value *= Mathf.Max(0.1f, Mathf.Abs(MonsterDamageCfg.Value));
+						}
+
+						return value;
+					});
+					c.Emit(OpCodes.Stloc, baseValue);
+				}
+				else
+				{
+					Debug.LogWarning("StatAdjustment - DamageHook Failed!");
+				}
+			};
+		}
+
+
+
+		private static void JumpHook()
 		{
 			IL.RoR2.CharacterBody.RecalculateStats += (il) =>
 			{
@@ -293,24 +331,28 @@ namespace TPDespair.StatAdjustment
 				}
 				else
 				{
-					Debug.LogWarning("StatAdjustment - ExtraJumpHook Failed!");
+					Debug.LogWarning("StatAdjustment - JumpHook Failed!");
 				}
 			};
 		}
 
-		private static void ExtraMovespeedHook()
+		private static void MovespeedHook()
 		{
 			IL.RoR2.CharacterBody.RecalculateStats += (il) =>
 			{
 				ILCursor c = new ILCursor(il);
 
+				const int baseValue = 75;
+				const int multValue = 76;
+				const int divValue = 77;
+
 				bool found = c.TryGotoNext(
-					x => x.MatchLdloc(62),
-					x => x.MatchLdloc(63),
-					x => x.MatchLdloc(64),
+					x => x.MatchLdloc(baseValue),
+					x => x.MatchLdloc(multValue),
+					x => x.MatchLdloc(divValue),
 					x => x.MatchDiv(),
 					x => x.MatchMul(),
-					x => x.MatchStloc(62)
+					x => x.MatchStloc(baseValue)
 				);
 
 				if (found)
@@ -319,46 +361,55 @@ namespace TPDespair.StatAdjustment
 
 					c.Emit(OpCodes.Pop);
 
-					c.Emit(OpCodes.Ldloc, 63);
-					c.EmitDelegate<Func<float, float>>((value) =>
+					// increase
+					c.Emit(OpCodes.Ldarg, 0);
+					c.Emit(OpCodes.Ldloc, multValue);
+					c.EmitDelegate<Func<CharacterBody, float, float>>((self, value) =>
 					{
-						value += ExtraMovespeedCfg.Value;
+						if(self.teamComponent.teamIndex == TeamIndex.Player) value += ExtraMovespeedPlayerCfg.Value;
+						else value += ExtraMovespeedMonsterCfg.Value;
 
 						return value;
 					});
-					c.Emit(OpCodes.Stloc, 63);
+					c.Emit(OpCodes.Stloc, multValue);
 
-					c.Emit(OpCodes.Ldloc, 62);
+					c.Emit(OpCodes.Ldloc, baseValue);
 				}
 				else
 				{
-					Debug.LogWarning("StatAdjustment - ExtraMovespeedHook Failed!");
+					Debug.LogWarning("StatAdjustment - MovespeedHook Failed!");
 				}
 			};
 		}
+
+
 
 		private static float StepCeil(float value, float step)
 		{
 			return Mathf.Ceil((value - 0.1f) / step) * step;
 		}
 
-		private static void BaseHealthHook()
+		private static void HealthHook()
 		{
 			IL.RoR2.CharacterBody.RecalculateStats += (il) =>
 			{
 				ILCursor c = new ILCursor(il);
 
+				const int baseValue = 63;
+				const int multValue = 64;
+
 				bool found = c.TryGotoNext(
-					x => x.MatchLdloc(50),
-					x => x.MatchLdloc(51),
+					x => x.MatchLdloc(baseValue),
+					x => x.MatchLdloc(multValue),
 					x => x.MatchMul(),
-					x => x.MatchStloc(50)
+					x => x.MatchStloc(baseValue)
 				);
 
 				if (found)
 				{
+					// add
 					c.Emit(OpCodes.Ldarg, 0);
-					c.Emit(OpCodes.Ldloc, 50);
+					c.Emit(OpCodes.Ldloc, baseValue);
 					c.EmitDelegate<Func<CharacterBody, float, float>>((self, value) =>
 					{
 						if (!self.isPlayerControlled && self.teamComponent.teamIndex != TeamIndex.Player) return value;
@@ -390,14 +441,16 @@ namespace TPDespair.StatAdjustment
 
 						return value + Mathf.Round(addedHealth);
 					});
-					c.Emit(OpCodes.Stloc, 50);
+					c.Emit(OpCodes.Stloc, baseValue);
 				}
 				else
 				{
-					Debug.LogWarning("StatAdjustment - BaseHealthHook Failed!");
+					Debug.LogWarning("StatAdjustment - HealthHook Failed!");
 				}
 			};
 		}
+
+
 
 		private static void BaseRegenHook()
 		{
@@ -405,15 +458,17 @@ namespace TPDespair.StatAdjustment
 			{
 				ILCursor c = new ILCursor(il);
 
+				const int knurlValue = 68;
+
 				bool found = c.TryGotoNext(
 					x => x.MatchLdcR4(1f),
-					x => x.MatchStloc(60)
+					x => x.MatchStloc(73)
 				);
 
 				if (found)
 				{
 					c.Emit(OpCodes.Ldarg, 0);
-					c.Emit(OpCodes.Ldloc, 55);
+					c.Emit(OpCodes.Ldloc, knurlValue);
 					c.EmitDelegate<Func<CharacterBody, float, float>>((self, value) =>
 					{
 						if (!self.isPlayerControlled && self.teamComponent.teamIndex != TeamIndex.Player) return value;
@@ -425,7 +480,7 @@ namespace TPDespair.StatAdjustment
 
 						return value + addedRegen;
 					});
-					c.Emit(OpCodes.Stloc, 55);
+					c.Emit(OpCodes.Stloc, knurlValue);
 				}
 				else
 				{
@@ -442,11 +497,11 @@ namespace TPDespair.StatAdjustment
 
 				bool found = c.TryGotoNext(
 					x => x.MatchLdcR4(1f),
-					x => x.MatchLdloc(41),
+					x => x.MatchLdloc(54),
 					x => x.MatchLdcR4(0.2f),
 					x => x.MatchMul(),
 					x => x.MatchAdd(),
-					x => x.MatchStloc(54)
+					x => x.MatchStloc(67)
 				);
 
 				if (found)
@@ -475,21 +530,42 @@ namespace TPDespair.StatAdjustment
 				ILCursor c = new ILCursor(il);
 
 				bool found = c.TryGotoNext(
-					x => x.MatchLdsfld(typeof(RoR2Content.Buffs).GetField("OnFire")),
-					x => x.MatchCallOrCallvirt<CharacterBody>("HasBuff"),
-					x => x.MatchBrfalse(out _),
 					x => x.MatchLdcR4(0f),
-					x => x.MatchStloc(60)
+					x => x.MatchLdloc(74),
+					x => x.MatchCall<Mathf>("Min"),
+					x => x.MatchStloc(74)
 				);
 
 				if (found)
 				{
-					c.Index += 4;
+					int indexOfMatch = c.Index + 1;
 
-					c.Emit(OpCodes.Pop);
-					c.Emit(OpCodes.Ldloc, 60);
-					c.Emit(OpCodes.Ldc_R4, BurningRegenMultCfg.Value);
-					c.Emit(OpCodes.Mul);
+					found = c.TryGotoNext(
+						x => x.MatchCallOrCallvirt<CharacterBody>("get_cursePenalty")
+					);
+
+					if (found)
+					{
+						int indexOfCurse = c.Index;
+
+						if (indexOfCurse - 12 > indexOfMatch)
+						{
+							c.Index = indexOfMatch;
+
+							c.Emit(OpCodes.Pop);
+							c.Emit(OpCodes.Ldloc, 74);
+							c.Emit(OpCodes.Ldc_R4, BurningRegenMultCfg.Value);
+							c.Emit(OpCodes.Mul);
+						}
+						else
+						{
+							Debug.LogWarning("StatAdjustment - BurningRegenHook Failed! : get_cursePenalty Too Close!");
+						}
+					}
+					else
+					{
+						Debug.LogWarning("StatAdjustment - BurningRegenHook Failed! : get_cursePenalty Not Found!");
+					}
 				}
 				else
 				{
@@ -498,11 +574,7 @@ namespace TPDespair.StatAdjustment
 			};
 		}
 
-		public static float ExtGetBurnRegenMult()
-		{
-			if (!RegenChangesCfg.Value) return 0f;
-			return BurningRegenMultCfg.Value;
-		}
+
 
 		private static void DynamicBarrierDecayHook()
 		{
@@ -584,14 +656,22 @@ namespace TPDespair.StatAdjustment
 			{
 				if (inventory.GetItemCount(RoR2Content.Items.BarrierOnOverHeal) > 0) mult *= 1f - AegisSlowMultCfg.Value;
 			}
-
+			/*
 			if (body.HasBuff(AffixArmored))
 			{
 				if (body.teamComponent.teamIndex == TeamIndex.Player) mult *= 1f - IroncladSlowMultPlayerCfg.Value;
 				else mult *= 1f - IroncladSlowMultMonsterCfg.Value;
 			}
-
+			*/
 			return mult;
+		}
+
+
+
+		public static float ExtGetBurnRegenMult()
+		{
+			if (!RegenChangesCfg.Value) return 0f;
+			return BurningRegenMultCfg.Value;
 		}
 
 		public static float ExtGetBodyBarrierDecayMult(CharacterBody body)
