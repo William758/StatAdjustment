@@ -21,7 +21,7 @@ namespace TPDespair.StatAdjustment
 
 	public class StatAdjustmentPlugin : BaseUnityPlugin
 	{
-		public const string ModVer = "1.1.0";
+		public const string ModVer = "1.1.1";
 		public const string ModName = "StatAdjustment";
 		public const string ModGuid = "com.TPDespair.StatAdjustment";
 
@@ -267,8 +267,8 @@ namespace TPDespair.StatAdjustment
 			{
 				ILCursor c = new ILCursor(il);
 
-				const int baseValue = 79;
-				const int multValue = 80;
+				const int baseValue = 78;
+				const int multValue = 79;
 
 				bool found = c.TryGotoNext(
 					x => x.MatchLdloc(baseValue),
@@ -342,9 +342,9 @@ namespace TPDespair.StatAdjustment
 			{
 				ILCursor c = new ILCursor(il);
 
-				const int baseValue = 75;
-				const int multValue = 76;
-				const int divValue = 77;
+				const int baseValue = 74;
+				const int multValue = 75;
+				const int divValue = 76;
 
 				bool found = c.TryGotoNext(
 					x => x.MatchLdloc(baseValue),
@@ -395,8 +395,8 @@ namespace TPDespair.StatAdjustment
 			{
 				ILCursor c = new ILCursor(il);
 
-				const int baseValue = 63;
-				const int multValue = 64;
+				const int baseValue = 62;
+				const int multValue = 63;
 
 				bool found = c.TryGotoNext(
 					x => x.MatchLdloc(baseValue),
@@ -458,11 +458,12 @@ namespace TPDespair.StatAdjustment
 			{
 				ILCursor c = new ILCursor(il);
 
-				const int knurlValue = 68;
+				const int knurlValue = 67;
+				const int multValue = 72;
 
 				bool found = c.TryGotoNext(
 					x => x.MatchLdcR4(1f),
-					x => x.MatchStloc(73)
+					x => x.MatchStloc(multValue)
 				);
 
 				if (found)
@@ -497,11 +498,11 @@ namespace TPDespair.StatAdjustment
 
 				bool found = c.TryGotoNext(
 					x => x.MatchLdcR4(1f),
-					x => x.MatchLdloc(54),
+					x => x.MatchLdloc(53),
 					x => x.MatchLdcR4(0.2f),
 					x => x.MatchMul(),
 					x => x.MatchAdd(),
-					x => x.MatchStloc(67)
+					x => x.MatchStloc(66)
 				);
 
 				if (found)
@@ -529,11 +530,13 @@ namespace TPDespair.StatAdjustment
 			{
 				ILCursor c = new ILCursor(il);
 
+				const int combinedFlatRegenValue = 73;
+
 				bool found = c.TryGotoNext(
 					x => x.MatchLdcR4(0f),
-					x => x.MatchLdloc(74),
+					x => x.MatchLdloc(combinedFlatRegenValue),
 					x => x.MatchCall<Mathf>("Min"),
-					x => x.MatchStloc(74)
+					x => x.MatchStloc(combinedFlatRegenValue)
 				);
 
 				if (found)
@@ -553,7 +556,7 @@ namespace TPDespair.StatAdjustment
 							c.Index = indexOfMatch;
 
 							c.Emit(OpCodes.Pop);
-							c.Emit(OpCodes.Ldloc, 74);
+							c.Emit(OpCodes.Ldloc, combinedFlatRegenValue);
 							c.Emit(OpCodes.Ldc_R4, BurningRegenMultCfg.Value);
 							c.Emit(OpCodes.Mul);
 						}
